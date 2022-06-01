@@ -128,7 +128,16 @@ func LookupIP(ip string) (IP, error) {
 	}
 
 	q := fmt.Sprintf("%s.%s.", rev, zone)
-	recs, err := net.LookupTXT(q)
+	// recs, err := net.LookupTXT(q)
+	resolver := &net.Resolver{
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			dialer := &net.Dialer{
+				Timeout: 1 * time.Second,
+			}
+			return dialer.DialContext(ctx, "tcp", "8.8.8.8:53")
+		},
+	}
+	recs, err := resolver.LookupTXT(context.Background(), q)
 	if err != nil {
 		return IP{}, errors.New("DNS lookup failed")
 	}
