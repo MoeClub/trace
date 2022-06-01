@@ -20,7 +20,7 @@ import (
 
 var rIp = []string{"219.141.136.12", "202.106.50.1", "221.179.155.161", "202.96.209.133", "210.22.97.1", "211.136.112.200", "58.60.188.222", "210.21.196.6", "120.196.165.24"}
 var rName = []string{"北京电信", "北京联通", "北京移动", "上海电信", "上海联通", "上海移动", "广州电信", "广州联通", "广州移动"}
-var rAS = map[uint32]string{0: "-", 4134: "AS4134  电信163 [普通线路]", 4809: "AS4809  电信CN2 [优质线路]", 4837: "AS4837  联通 [普通线路]", 9929: "AS9929  联通 [优质线路]", 9808: "AS9808  移动CMI [普通线路]", 58453: "AS58453 移动CMI [普通线路]"}
+var rAS = map[uint32]string{0: "-", 4134: "AS4134  电信163 [普通线路]", 4809: "AS4809  电信CN2 [优质线路]", 4837: "AS4837  联通    [普通线路]", 9929: "AS9929  联通    [优质线路]", 9808: "AS9808  移动CMI [普通线路]", 58453: "AS58453 移动CMI [普通线路]"}
 
 // IP holds the BGP origin information about a given IP address.
 type IP struct {
@@ -670,13 +670,15 @@ func trace(wg *sync.WaitGroup, i int) {
 	defer wg.Done()
 	hops, err := Trace(net.ParseIP(rIp[i]))
 	if err != nil {
-		log.Fatal(err)
+		// log.Fatal(err)
+		return
 	}
 	for _, h := range hops {
 		for _, n := range h.Nodes {
 			ip, err := LookupIP(n.IP.String())
 			if err != nil {
-				log.Fatal(err)
+				// log.Fatal(err)
+				continue
 			}
 			if ip.Country == "CN" {
 				log.Printf("%v %-15s %-23s %dms\n", rName[i], rIp[i], rAS[ip.ASNum], n.RTT[0].Milliseconds())
