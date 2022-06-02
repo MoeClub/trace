@@ -693,15 +693,21 @@ func trace(wg *sync.WaitGroup, dest string) {
 		log.Fatal(err)
 		// return
 	}
+	Country := make([]string, 0)
+	lastC := ""
 	for _, h := range hops {
 		for _, n := range h.Nodes {
 			ip, err := LookupIP(n.IP.String())
-			if err != nil {
+			if err != nil || ip.Country == "" {
 				// log.Fatal(err)
 				continue
 			}
+			if ip.Country != lastC {
+				Country = append(Country, ip.Country)
+			}
+			lastC = ip.Country
 			if ip.Country == "CN" && AS[ip.ASNum] != "" {
-				log.Printf("%v %-15s %-15s %-23s %dms\n", r[0], r[1], n.IP.String(), AS[ip.ASNum], n.RTT[0].Milliseconds())
+				fmt.Printf("%v %-15s %-15s %-21s %4dms %s\n", r[0], r[1], n.IP.String(), AS[ip.ASNum], n.RTT[0].Milliseconds(), strings.Join(Country, "-->"))
 				return
 			}
 		}
@@ -709,6 +715,7 @@ func trace(wg *sync.WaitGroup, dest string) {
 }
 
 func main() {
+	log.Println("")
 	var wg = sync.WaitGroup{}
 	for _, dest := range Dest {
 		wg.Add(1)
