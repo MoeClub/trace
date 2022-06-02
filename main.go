@@ -18,10 +18,29 @@ import (
 	"time"
 )
 
+var Dest = []string{
+	"北京电信:219.141.136.10:53",
+	"北京联通:202.106.46.151:53",
+	"北京移动:211.138.30.66:53",
+
+	"上海电信:202.96.209.133:53",
+	"上海联通:211.95.1.123:53",
+	"上海移动:211.136.150.66:53",
+
+	"广东电信:202.96.128.86:53",
+	"广东联通:221.5.88.88:53",
+	"广东移动:211.139.163.6:53",
+
+	"#湖北电信:202.103.0.68:53",
+	"#湖北联通:218.104.111.114:53",
+	"#湖北移动:211.137.58.20:53",
+
+	"#四川电信:218.6.200.139:53",
+	"#四川联通:119.6.6.6:53",
+	"#四川移动:211.137.82.4:53",
+}
+var AS = map[uint32]string{4134: "AS4134  电信163  [ 普通 ]", 4809: "AS4809  电信CN2  [*优质*]", 4837: "AS4837  联通169  [ 普通 ]", 9929: "AS9929  联通CUII [*优质*]", 9808: "AS9808  移动CMI  [ 普通 ]", 58453: "AS58453 移动CMI  [ 普通 ]"}
 var hexDigit = "0123456789abcdef"
-var rIp = []string{"219.141.136.12", "202.106.50.1", "221.179.155.161", "202.96.209.133", "210.22.97.1", "211.136.112.200", "58.60.188.222", "210.21.196.6", "120.196.165.24"}
-var rName = []string{"北京电信", "北京联通", "北京移动", "上海电信", "上海联通", "上海移动", "广州电信", "广州联通", "广州移动"}
-var rAS = map[uint32]string{4134: "AS4134  电信163  [普通线路]", 4809: "AS4809  电信CN2  [优质线路]", 4837: "AS4837  联通169  [普通线路]", 9929: "AS9929  联通CUII [优质线路]", 9808: "AS9808  移动CMI  [普通线路]", 58453: "AS58453 移动CMI  [普通线路]"}
 
 // IP holds the BGP origin information about a given IP address.
 type IP struct {
@@ -656,9 +675,20 @@ func Trace(ip net.IP) ([]*Hop, error) {
 }
 
 // Main Trace
-func trace(wg *sync.WaitGroup, i int) {
+func trace(wg *sync.WaitGroup, dest string) {
 	defer wg.Done()
-	hops, err := Trace(net.ParseIP(rIp[i]))
+	if strings.ContainsRune(dest, '#') || (!strings.ContainsRune(dest, ':')) {
+		return
+	}
+	r := strings.Split(dest, ":")
+	if len(r) <= 3 && len(r) >= 2 {
+		if len(r) == 2 {
+			r = append(r, "0")
+		}
+	} else {
+		return
+	}
+	hops, err := Trace(net.ParseIP(r[1]))
 	if err != nil {
 		log.Fatal(err)
 		// return
@@ -670,8 +700,8 @@ func trace(wg *sync.WaitGroup, i int) {
 				// log.Fatal(err)
 				continue
 			}
-			if ip.Country == "CN" && rAS[ip.ASNum] != "" {
-				log.Printf("%v %-15s %-15s %-23s %dms\n", rName[i], rIp[i], n.IP.String(), rAS[ip.ASNum], n.RTT[0].Milliseconds())
+			if ip.Country == "CN" && AS[ip.ASNum] != "" {
+				log.Printf("%v %-15s %-15s %-23s %dms\n", r[0], r[1], n.IP.String(), AS[ip.ASNum], n.RTT[0].Milliseconds())
 				return
 			}
 		}
@@ -680,9 +710,9 @@ func trace(wg *sync.WaitGroup, i int) {
 
 func main() {
 	var wg = sync.WaitGroup{}
-	for i := range rIp {
+	for _, dest := range Dest {
 		wg.Add(1)
-		go trace(&wg, i)
+		go trace(&wg, dest)
 	}
 	wg.Wait()
 }
