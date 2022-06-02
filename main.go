@@ -141,6 +141,15 @@ func LookupIP(ip string) (IP, error) {
 	var zone string
 	//parsedIP := net.ParseIP(ip)
 	if v4 := parsedIP.To4(); v4 != nil {
+		if strings.HasPrefix(ip, "59.43.") {
+			return IP{
+				ASNum:     uint32(4809),
+				BGPPrefix: "59.43.0.0/16",
+				Country:   "CN",
+				Registry:  "apnic",
+				Allocated: "2012-12-12",
+			}, nil
+		}
 		zone = "origin.asn.cymru.com"
 	} else {
 		zone = "origin6.asn.cymru.com"
@@ -156,9 +165,9 @@ func LookupIP(ip string) (IP, error) {
 		return IP{}, errors.New("parse failed")
 	}
 	origin.IP = ip
-	if asn, err := LookupASN(fmt.Sprintf("AS%d", origin.ASNum)); err == nil {
-		origin.ASName = asn.ASName
-	}
+	//if asn, err := LookupASN(fmt.Sprintf("AS%d", origin.ASNum)); err == nil {
+	//	origin.ASName = asn.ASName
+	//}
 
 	return origin, nil
 }
@@ -189,8 +198,7 @@ func LookupASN(asn string) (ASN, error) {
 	if strings.ToLower(asn[0:2]) != "as" {
 		asn = "AS" + asn
 	}
-	q := fmt.Sprintf("%s.asn.cymru.com.", asn)
-	res, err := net.LookupTXT(q)
+	res, err := Resolver(fmt.Sprintf("%s.asn.cymru.com.", asn))
 	if err != nil {
 		return ASN{}, errors.New("DNS lookup failed")
 	}
@@ -707,7 +715,7 @@ func trace(wg *sync.WaitGroup, dest string) {
 			}
 			lastC = ip.Country
 			if ip.Country == "CN" && AS[ip.ASNum] != "" {
-				fmt.Printf("%v %-15s %-15s %-21s %4dms %s\n", r[0], r[1], n.IP.String(), AS[ip.ASNum], n.RTT[0].Milliseconds(), strings.Join(Country, "-->"))
+				fmt.Printf("%v %-15s %-15s %-21s %4dms  %s\n", r[0], r[1], n.IP.String(), AS[ip.ASNum], n.RTT[0].Milliseconds(), strings.Join(Country, "-->"))
 				return
 			}
 		}
