@@ -18,9 +18,10 @@ import (
 	"time"
 )
 
+var hexDigit = "0123456789abcdef"
 var rIp = []string{"219.141.136.12", "202.106.50.1", "221.179.155.161", "202.96.209.133", "210.22.97.1", "211.136.112.200", "58.60.188.222", "210.21.196.6", "120.196.165.24"}
 var rName = []string{"北京电信", "北京联通", "北京移动", "上海电信", "上海联通", "上海移动", "广州电信", "广州联通", "广州移动"}
-var rAS = map[uint32]string{0: "-", 4134: "AS4134  电信163 [普通线路]", 4809: "AS4809  电信CN2 [优质线路]", 4837: "AS4837  联通    [普通线路]", 9929: "AS9929  联通    [优质线路]", 9808: "AS9808  移动CMI [普通线路]", 58453: "AS58453 移动CMI [普通线路]"}
+var rAS = map[uint32]string{4134: "AS4134  电信163  [普通线路]", 4809: "AS4809  电信CN2  [优质线路]", 4837: "AS4837  联通169  [普通线路]", 9929: "AS9929  联通CUII [优质线路]", 9808: "AS9808  移动CMI  [普通线路]", 58453: "AS58453 移动CMI  [普通线路]"}
 
 // IP holds the BGP origin information about a given IP address.
 type IP struct {
@@ -42,12 +43,10 @@ type ASN struct {
 	ASName    string `json:"as_name"`
 }
 
-const hexDigit = "0123456789abcdef"
-
-func reverseaddr(addr string) (string, error) {
+func reverseAddr(addr string) (net.IP, string, error) {
 	ip := net.ParseIP(addr)
 	if ip == nil {
-		return "", fmt.Errorf("unrecognized address: %s", addr)
+		return nil, "", fmt.Errorf("unrecognized address: %s", addr)
 	}
 	if v4 := ip.To4(); v4 != nil {
 		buf := make([]byte, 0, net.IPv4len*4)
@@ -59,7 +58,7 @@ func reverseaddr(addr string) (string, error) {
 				buf = append(buf, '.')
 			}
 		}
-		return string(buf), nil
+		return ip, string(buf), nil
 	}
 
 	buf := make([]byte, 0, net.IPv6len*4)
@@ -72,7 +71,7 @@ func reverseaddr(addr string) (string, error) {
 			buf = append(buf, '.')
 		}
 	}
-	return string(buf), nil
+	return ip, string(buf), nil
 }
 
 // Parse the text output from the IP to ASN service and return an IP.
@@ -96,39 +95,7 @@ func parseOrigin(txt string) (IP, error) {
 	}, nil
 }
 
-var (
-	originV4 = "origin.asn.cymru.com"
-	originV6 = "origin6.asn.cymru.com"
-)
-
-// LookupIP queries Team Cymru's IP to ASN mapping service and returns BGP
-// origin information about the IP.
-func LookupIP(ip string) (IP, error) {
-	rev, err := reverseaddr(ip)
-	if err != nil {
-		return IP{}, errors.New("reversing IP failed")
-	}
-
-	var zone string
-	parsedIP := net.ParseIP(ip)
-	if v4 := parsedIP.To4(); v4 != nil {
-		zone = originV4
-	} else {
-		zone = originV6
-	}
-
-	if parsedIP.IsPrivate() {
-		return IP{
-			ASNum:     uint32(0),
-			BGPPrefix: "-",
-			Country:   "-",
-			Registry:  "-",
-			Allocated: "-",
-		}, nil
-	}
-
-	q := fmt.Sprintf("%s.%s.", rev, zone)
-	// recs, err := net.LookupTXT(q)
+func Resolver(host string) ([]string, error) {
 	resolver := &net.Resolver{
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			dialer := &net.Dialer{
@@ -137,7 +104,30 @@ func LookupIP(ip string) (IP, error) {
 			return dialer.DialContext(ctx, "tcp", "8.8.8.8:53")
 		},
 	}
-	recs, err := resolver.LookupTXT(context.Background(), q)
+	return resolver.LookupTXT(context.Background(), host)
+}
+
+// LookupIP queries Team Cymru's IP to ASN mapping service and returns BGP
+// origin information about the IP.
+func LookupIP(ip string) (IP, error) {
+	parsedIP, rev, err := reverseAddr(ip)
+	if err != nil {
+		return IP{}, errors.New("reversing IP failed")
+	}
+
+	if parsedIP.IsPrivate() {
+		return IP{}, nil
+	}
+
+	var zone string
+	//parsedIP := net.ParseIP(ip)
+	if v4 := parsedIP.To4(); v4 != nil {
+		zone = "origin.asn.cymru.com"
+	} else {
+		zone = "origin6.asn.cymru.com"
+	}
+
+	recs, err := Resolver(fmt.Sprintf("%s.%s.", rev, zone))
 	if err != nil {
 		return IP{}, errors.New("DNS lookup failed")
 	}
@@ -670,8 +660,8 @@ func trace(wg *sync.WaitGroup, i int) {
 	defer wg.Done()
 	hops, err := Trace(net.ParseIP(rIp[i]))
 	if err != nil {
-		// log.Fatal(err)
-		return
+		log.Fatal(err)
+		// return
 	}
 	for _, h := range hops {
 		for _, n := range h.Nodes {
@@ -680,8 +670,8 @@ func trace(wg *sync.WaitGroup, i int) {
 				// log.Fatal(err)
 				continue
 			}
-			if ip.Country == "CN" {
-				log.Printf("%v %-15s %-23s %dms\n", rName[i], rIp[i], rAS[ip.ASNum], n.RTT[0].Milliseconds())
+			if ip.Country == "CN" && rAS[ip.ASNum] != "" {
+				log.Printf("%v %-15s %-15s %-23s %dms\n", rName[i], rIp[i], n.IP.String(), rAS[ip.ASNum], n.RTT[0].Milliseconds())
 				return
 			}
 		}
