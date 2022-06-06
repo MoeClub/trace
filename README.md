@@ -1,5 +1,13 @@
 # trace
 ```
+case `uname -m` in aarch64|arm64) VER="arm64";; x86_64|amd64) VER="amd64";; *) exit 1;; esac; wget -qO ./trace "https://raw.githubusercontent.com/MoeClub/trace/main/${VER}/linux/trace" && chmod a+x ./trace
+
+./trace
+
+```
+
+# dest
+```
 	"北京电信:219.141.136.10:53",
 	"北京联通:202.106.46.151:53",
 	"北京移动:211.138.30.66:53",
