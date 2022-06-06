@@ -1,6 +1,6 @@
 # trace
 ```
-case `uname -m` in aarch64|arm64) VER="arm64";; x86_64|amd64) VER="amd64";; *) exit 1;; esac; wget -qO ./trace "https://raw.githubusercontent.com/MoeClub/trace/main/${VER}/linux/trace" && chmod a+x ./trace
+case `uname -m` in aarch64|arm64) VER="arm64";; x86_64|amd64) VER="amd64";; *) VER=`read -p "Arch:"`;; esac; wget -qO ./trace "https://raw.githubusercontent.com/MoeClub/trace/main/${VER}/linux/trace" && chmod a+x ./trace
 
 ./trace
 
